@@ -151,8 +151,24 @@ def _create_embeddings(embedding_layer, images, labels, images_placeholder, phas
 
 def _train_and_save_classifier(emb_array, label_array, class_names, classifier_filename_exp):
     logger.info('Training Classifier')
-    model = SVC(kernel='linear', probability=True, verbose=False)
-    model.fit(emb_array, label_array)
+
+    builder = tf.saved_model_builder.SavedModelBuilder(classifier_filename_exp)
+
+    with tf.Session(graph=tf.Graph()) as sess:
+        builder.add_meta_graph_and_variables(sess, \
+           [tag_constants.TRAINING], \
+           signature_def_map=foo_signatures,\
+           assets_collection=foo_assets)
+
+    feats = tf.contrib.learn.infer_real_valued_columns_from_input(emb_array)
+    classifier_tf = tf.contrib.learn.DNNClassifier(feature_columns=feats, 
+                                               hidden_units=[50, 50, 50], 
+                                               n_classes=3)
+    classifier_tf.fit(emb_array, label_array, steps=5000)
+
+
+    # model = SVC(kernel='linear', probability=True, verbose=False)
+    # model.fit(emb_array, label_array)
 
     with open(classifier_filename_exp, 'wb') as outfile:
         pickle.dump((model, class_names), outfile)
